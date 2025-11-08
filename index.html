@@ -2136,5 +2136,133 @@
 })();
 </script>
 
+<!-- SFX: paste this block just before </body> -->
+<!-- Update the src attributes to point at your actual sound files -->
+<audio id="sfx-boot" src="sfx/boot.wav" preload="auto"></audio>
+<audio id="sfx-click" src="sfx/click.wav" preload="auto"></audio>
+<audio id="sfx-open" src="sfx/open.wav" preload="auto"></audio>
+<audio id="sfx-close" src="sfx/close.wav" preload="auto"></audio>
+<audio id="sfx-type" src="sfx/type.wav" preload="auto"></audio>
+
+<script>
+(function(){
+  function playSfx(id, opts = {}) {
+    try {
+      const base = document.getElementById(id);
+      if (!base) return;
+      const s = base.cloneNode(true);
+      if (opts.volume != null) s.volume = opts.volume;
+      if (opts.playbackRate != null) s.playbackRate = opts.playbackRate;
+      s.currentTime = 0;
+      s.play?.().catch(()=>{});
+      s.addEventListener('ended', () => { try{ s.remove(); }catch(e){} });
+      document.body.appendChild(s);
+      setTimeout(()=>{ try{ s.remove(); }catch(e){} }, 3000);
+    } catch (e) {}
+  }
+  function randomPitch(base = 1, spread = 0.06){ return base + (Math.random() * spread * 2 - spread); }
+
+  // Boot sound (fires when runBootSequence is called, fallback on load)
+  try {
+    if (typeof runBootSequence === 'function') {
+      const _orig = runBootSequence;
+      runBootSequence = function(...a){ playSfx('sfx-boot',{volume:0.9}); return _orig.apply(this,a); };
+    } else {
+      window.addEventListener('load', ()=> setTimeout(()=> playSfx('sfx-boot',{volume:0.9}),200));
+    }
+  } catch(e){}
+
+  // Desktop icon click
+  try {
+    document.querySelectorAll('.desktop-icon').forEach(icon => {
+      if (!icon.dataset.sfxBound) {
+        icon.addEventListener('click', ()=> playSfx('sfx-click',{volume:0.7}));
+        icon.dataset.sfxBound = '1';
+      }
+    });
+  } catch(e){}
+
+  // openWindow / closeWindow wrappers
+  try {
+    if (window.openWindow) {
+      const _o = window.openWindow;
+      window.openWindow = function(...a){ playSfx('sfx-open',{volume:0.78}); return _o.apply(this,a); };
+    }
+  } catch(e){}
+  try {
+    if (window.closeWindow) {
+      const _c = window.closeWindow;
+      window.closeWindow = function(...a){ playSfx('sfx-close',{volume:0.86, playbackRate:1.02}); return _c.apply(this,a); };
+    }
+  } catch(e){}
+  try {
+    if (window.animateCloseToIcon) {
+      const _ac = window.animateCloseToIcon;
+      window.animateCloseToIcon = function(...a){ playSfx('sfx-close',{volume:0.86, playbackRate:1.02}); return _ac.apply(this,a); };
+    }
+  } catch(e){}
+
+  // typeLine & addTerminalOutput: non-invasive per-char beeps
+  try {
+    if (typeof typeLine === 'function') {
+      const _t = typeLine;
+      typeLine = function(line,...rest){
+        try {
+          const avg = 32;
+          for (let i=0;i<line.length;i++){
+            const t = Math.max(12, avg + (Math.random()*18 - 9));
+            setTimeout(()=> playSfx('sfx-type',{volume:0.36, playbackRate: randomPitch(1,0.07)}), i * t);
+          }
+        } catch(e){}
+        return _t.apply(this,[line,...rest]);
+      };
+    }
+  } catch(e){}
+  try {
+    if (typeof addTerminalOutput === 'function') {
+      const _a = addTerminalOutput;
+      addTerminalOutput = function(msg){
+        try {
+          const lines = Array.isArray(msg)? msg : [msg];
+          let totalChars = lines.reduce((s,l)=> s + String(l).length, 0);
+          const avg = 28;
+          for (let i=0;i<totalChars;i++){
+            const t = Math.max(10, avg + (Math.random()*18 - 9));
+            setTimeout(()=> playSfx('sfx-type',{volume:0.34, playbackRate: randomPitch(1,0.06)}), i * t);
+          }
+        } catch(e){}
+        return _a.apply(this, arguments);
+      };
+    }
+  } catch(e){}
+
+  // Terminal input per-char feedback
+  try {
+    const term = document.getElementById('terminal-input');
+    if (term && !term.dataset.sfxTyping) {
+      term.addEventListener('keydown', (ev) => {
+        const k = ev.key;
+        if (!k) return;
+        if (k === 'Enter' || k === 'Tab' || k === 'Shift' || k === 'Control' || k === 'Alt' || k === 'Meta') return;
+        if (k === 'Backspace' || k === 'Delete') { playSfx('sfx-click',{volume:0.26, playbackRate:0.98}); return; }
+        if (k.length === 1) playSfx('sfx-type',{volume:0.26, playbackRate: randomPitch(1,0.09)});
+      });
+      term.dataset.sfxTyping = '1';
+    }
+  } catch(e){}
+
+  // window control buttons
+  try {
+    document.querySelectorAll('.win-btn').forEach(btn => {
+      if (!btn.dataset.sfxBound) {
+        btn.addEventListener('click', ()=> playSfx('sfx-click',{volume:0.6, playbackRate:0.98}));
+        btn.dataset.sfxBound = '1';
+      }
+    });
+  } catch(e){}
+
+})();
+</script>
+
 </body>
 </html>
